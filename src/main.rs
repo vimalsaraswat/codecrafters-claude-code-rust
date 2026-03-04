@@ -20,7 +20,7 @@ struct Response {
 #[derive(Debug, Deserialize)]
 struct Choice {
     message: Message,
-    finish_reason: Option<String>,
+    // finish_reason: Option<String>,
 }
 
 #[tokio::main]
@@ -97,9 +97,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         } else if let Some(content) = &message.content {
             println!("{}", content);
-        }
-
-        if response.choices[0].finish_reason == Some("stop".to_string()) {
             break;
         }
     }
