@@ -1,6 +1,6 @@
 use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
-use codecrafters_claude_code::tools::read_file::read_file;
+use codecrafters_claude_code::{message::Message, tools::read_file::read_file};
 use serde::Deserialize;
 use serde_json::json;
 use std::{env, process};
@@ -20,23 +20,7 @@ struct Response {
 #[derive(Debug, Deserialize)]
 struct Choice {
     message: Message,
-}
-
-#[derive(Debug, Deserialize)]
-struct Message {
-    tool_calls: Option<Vec<ToolCall>>,
-    content: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-struct ToolCall {
-    function: Function,
-}
-
-#[derive(Debug, Deserialize)]
-struct Function {
-    name: String,
-    arguments: String, // still a JSON string
+    finish_reason: Option<String>,
 }
 
 #[tokio::main]
@@ -57,62 +41,68 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::with_config(config);
 
-    let response: Response = client
-        .chat()
-        .create_byot(json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": args.prompt
-                }
-            ],
-            "model": "anthropic/claude-haiku-4.5",
-            "tools": [
-                {
-                  "type": "function",
-                  "function": {
-                    "name": "read_file",
-                    "description": "Read and return the contents of a file",
-                    "parameters": {
-                      "type": "object",
-                      "properties": {
-                        "file_path": {
-                          "type": "string",
-                          "description": "The path to the file to read"
+    let mut messages: Vec<Message> = Vec::new();
+
+    messages.push(Message::new_user(Some(args.prompt.clone())));
+
+    loop {
+        let response: Response = client
+            .chat()
+            .create_byot(json!({
+                "messages": serde_json::to_value(&messages)?,
+                "model": "anthropic/claude-haiku-4.5",
+                "tools": [
+                    {
+                      "type": "function",
+                      "function": {
+                        "name": "read_file",
+                        "description": "Read and return the contents of a file",
+                        "parameters": {
+                          "type": "object",
+                          "properties": {
+                            "file_path": {
+                              "type": "string",
+                              "description": "The path to the file to read"
+                            }
+                          },
+                          "required": ["file_path"]
                         }
-                      },
-                      "required": ["file_path"]
+                      }
                     }
-                  }
-                }
-            ]
-        }))
-        .await?;
+                ]
+            }))
+            .await?;
 
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    eprintln!("Logs from your program will appear here!");
+        // You can use print statements as follows for debugging, they'll be visible when running tests.
+        eprintln!("Logs from your program will appear here!");
 
-    let message = &response.choices[0].message;
+        let message = &response.choices[0].message;
 
-    if let Some(tool_calls) = &message.tool_calls {
-        if let Some(tool_call) = tool_calls.first() {
-            let name = tool_call.function.name.as_str();
-            let arguments = &tool_call.function.arguments;
+        messages.push(message.clone());
 
-            match name {
-                "read_file" => {
-                    let file_content = read_file(arguments);
-                    println!("{}", file_content);
-                }
-                _ => {
-                    println!("Unknown tool");
+        if let Some(tool_calls) = &message.tool_calls {
+            if let Some(tool_call) = tool_calls.first() {
+                let name = tool_call.function.name.as_str();
+                let arguments = &tool_call.function.arguments;
+
+                match name {
+                    "read_file" => {
+                        let file_content = read_file(arguments);
+                        messages.push(Message::new_tool(tool_call.id.clone(), Some(file_content)));
+                    }
+                    _ => {
+                        println!("Unknown tool");
+                    }
                 }
             }
         }
-    }
 
-    if let Some(content) = &message.content {
-        println!("{}", content);
+        if let Some(content) = &message.content {
+            println!("{}", content);
+        }
+        if response.choices[0].finish_reason == Some("stop".to_string()) {
+            break;
+        }
     }
 
     Ok(())
