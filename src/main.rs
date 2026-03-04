@@ -1,6 +1,8 @@
 use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
-use serde_json::{Value, json};
+use codecrafters_claude_code::tools::read_file::read_file;
+use serde::Deserialize;
+use serde_json::json;
 use std::{env, process};
 
 #[derive(Parser)]
@@ -8,6 +10,33 @@ use std::{env, process};
 struct Args {
     #[arg(short = 'p', long)]
     prompt: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct Response {
+    choices: Vec<Choice>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Choice {
+    message: Message,
+}
+
+#[derive(Debug, Deserialize)]
+struct Message {
+    tool_calls: Option<Vec<ToolCall>>,
+    content: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ToolCall {
+    function: Function,
+}
+
+#[derive(Debug, Deserialize)]
+struct Function {
+    name: String,
+    arguments: String, // still a JSON string
 }
 
 #[tokio::main]
@@ -28,8 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::with_config(config);
 
-    #[allow(unused_variables)]
-    let response: Value = client
+    let response: Response = client
         .chat()
         .create_byot(json!({
             "messages": [
@@ -64,8 +92,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     eprintln!("Logs from your program will appear here!");
 
-    // TODO: Uncomment the lines below to pass the first stage
-    if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+    let message = &response.choices[0].message;
+
+    if let Some(tool_calls) = &message.tool_calls {
+        if let Some(tool_call) = tool_calls.first() {
+            let name = tool_call.function.name.as_str();
+            let arguments = &tool_call.function.arguments;
+
+            match name {
+                "read_file" => {
+                    let file_content = read_file(arguments);
+                    println!("{}", file_content);
+                }
+                _ => {
+                    println!("Unknown tool");
+                }
+            }
+        }
+    }
+
+    if let Some(content) = &message.content {
         println!("{}", content);
     }
 
