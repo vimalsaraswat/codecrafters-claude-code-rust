@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "content": args.prompt
                 }
             ],
-            "model": "google/claude-haiku-4.5",
+            "model": "anthropic/claude-haiku-4.5",
             "tools": [
                 {
                   "type": "function",
