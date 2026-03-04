@@ -38,7 +38,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "content": args.prompt
                 }
             ],
-            "model": "anthropic/claude-haiku-4.5",
+            "model": "google/claude-haiku-4.5",
+            "tools": [
+                {
+                  "type": "function",
+                  "function": {
+                    "name": "read_file",
+                    "description": "Read and return the contents of a file",
+                    "parameters": {
+                      "type": "object",
+                      "properties": {
+                        "file_path": {
+                          "type": "string",
+                          "description": "The path to the file to read"
+                        }
+                      },
+                      "required": ["file_path"]
+                    }
+                  }
+                }
+            ]
         }))
         .await?;
 
