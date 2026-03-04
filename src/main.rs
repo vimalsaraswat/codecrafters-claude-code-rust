@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         messages.push(message.clone());
 
         if let Some(tool_calls) = &message.tool_calls {
-            if let Some(tool_call) = tool_calls.first() {
+            for tool_call in tool_calls {
                 let name = tool_call.function.name.as_str();
                 let arguments = &tool_call.function.arguments;
 
@@ -95,11 +95,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
             }
-        }
-
-        if let Some(content) = &message.content {
+        } else if let Some(content) = &message.content {
             println!("{}", content);
         }
+
         if response.choices[0].finish_reason == Some("stop".to_string()) {
             break;
         }
