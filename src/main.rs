@@ -2,7 +2,7 @@ use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
 use codecrafters_claude_code::{
     message::Message,
-    tools::{read_file::read_file, write_file::write_file},
+    tools::{read_file::read_file, run_bash_command::run_bash_command, write_file::write_file},
 };
 use serde::Deserialize;
 use serde_json::json;
@@ -92,6 +92,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                           }
                         }
                       }
+                    },
+                    {
+                      "type": "function",
+                      "function": {
+                        "name": "run_bash_command",
+                        "description": "Execute a shell command",
+                        "parameters": {
+                          "type": "object",
+                          "required": ["command"],
+                          "properties": {
+                            "command": {
+                              "type": "string",
+                              "description": "The command to execute"
+                            }
+                          }
+                        }
+                      }
                     }
                 ]
             }))
@@ -117,6 +134,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "write_file" => {
                         let file_content = write_file(arguments);
                         messages.push(Message::new_tool(tool_call.id.clone(), Some(file_content)));
+                    }
+                    "run_bash_command" => {
+                        let output = run_bash_command(arguments);
+                        messages.push(Message::new_tool(tool_call.id.clone(), Some(output)));
                     }
                     _ => {
                         println!("Unknown tool");
