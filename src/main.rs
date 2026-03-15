@@ -1,6 +1,9 @@
 use async_openai::{Client, config::OpenAIConfig};
 use clap::Parser;
-use codecrafters_claude_code::{message::Message, tools::read_file::read_file};
+use codecrafters_claude_code::{
+    message::Message,
+    tools::{read_file::read_file, write_file::write_file},
+};
 use serde::Deserialize;
 use serde_json::json;
 use std::{env, process};
@@ -68,6 +71,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                           "required": ["file_path"]
                         }
                       }
+                    },
+                    {
+                      "type": "function",
+                      "function": {
+                        "name": "write_file",
+                        "description": "Write content to a file",
+                        "parameters": {
+                          "type": "object",
+                          "required": ["file_path", "content"],
+                          "properties": {
+                            "file_path": {
+                              "type": "string",
+                              "description": "The path of the file to write to"
+                            },
+                            "content": {
+                              "type": "string",
+                              "description": "The content to write to the file"
+                            }
+                          }
+                        }
+                      }
                     }
                 ]
             }))
@@ -88,6 +112,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 match name {
                     "read_file" => {
                         let file_content = read_file(arguments);
+                        messages.push(Message::new_tool(tool_call.id.clone(), Some(file_content)));
+                    }
+                    "write_file" => {
+                        let file_content = write_file(arguments);
                         messages.push(Message::new_tool(tool_call.id.clone(), Some(file_content)));
                     }
                     _ => {
